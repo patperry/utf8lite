@@ -33,7 +33,7 @@ TEST_CFLAGS = $(shell pkg-config --cflags check) \
 
 TEST_LIBS = $(shell pkg-config --libs check)
 
-UNICODE = http://www.unicode.org/Public/15.0.0
+UNICODE = http://www.unicode.org/Public/15.1.0
 
 UTF8LITE_A = libutf8lite.a
 LIB_O	= src/array.o src/char.o src/encode.o src/error.o src/escape.o \
