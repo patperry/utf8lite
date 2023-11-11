@@ -6,9 +6,16 @@ PATTERN = re.compile(r"""^([0-9A-Fa-f]+)        # (first code)
                           \s*
                           ;                     # ;
                           \s*
-                          (\w+)                 # (property name)
+                          (\w+)                 # (prop name)
+                          \s*
+                          (;\s*(\w+))?          # (; (prop value))
                           \s*
                           (\#.*)?$              # (# comment)?""", re.X)
+
+FIRST_CODE = 1
+LAST_CODE = 3
+PROP_NAME = 4
+PROP_VALUE = 6
 
 UNICODE_MAX = 0x10FFFF
 
@@ -28,12 +35,15 @@ def read(filename, sets=False):
             line = line.split("#")[0] # remove comment
             m = PATTERN.match(line)
             if m:
-                first = int(m.group(1), 16)
-                if m.group(3):
-                    last = int(m.group(3), 16)
+                first = int(m.group(FIRST_CODE), 16)
+                if m.group(LAST_CODE):
+                    last = int(m.group(LAST_CODE), 16)
                 else:
                     last = first
-                name = m.group(4)
+                name = m.group(PROP_NAME)
+                val = m.group(PROP_VALUE)
+                if val != None:
+                    name = name + '=' + val
                 if not name in properties:
                     properties[name] = set()
                 prop = properties[name]

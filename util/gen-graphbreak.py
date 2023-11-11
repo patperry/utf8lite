@@ -21,18 +21,41 @@ try:
 except ModuleNotFoundError:
     from util import property
 
+DERIVED_CORE_PROPERTIES = "data/ucd/DerivedCoreProperties.txt"
 EMOJI_DATA = "data/ucd/emoji/emoji-data.txt"
 GRAPHEME_BREAK_PROPERTY = "data/ucd/auxiliary/GraphemeBreakProperty.txt"
+
 code_props = property.read(GRAPHEME_BREAK_PROPERTY)
 emoji_props = property.read(EMOJI_DATA, sets=True)
+
+derived_core_properties = property.read(DERIVED_CORE_PROPERTIES, sets=True)
+#incb_consonant = derived_core_properties['Indic_Conjunct_Break=Consonant']
+#incb_extend = derived_core_properties['Indic_Conjunct_Break=Extend']
 
 for i in range(len(code_props)):
     if code_props[i] is None:
         code_props[i] = 'Other'
+    elif code_props[i] == 'Extend':
+        code_props[i] = 'Extend_Other'
 
 for i in emoji_props['Extended_Pictographic']:
     assert code_props[i] == 'Other'
     code_props[i] = 'Extended_Pictographic'
+
+for p,v in (
+        ('InCB=Linker',    'Extend_InCB_Linker'),
+        ('InCB=Extend',    'Extend_InCB_Extend'),
+        ('InCB=Consonant', 'InCB_Consonant'),
+    ):
+    for i in derived_core_properties[p]:
+        if code_props[i] == 'ZWJ':
+            assert p == 'InCB=Extend'
+            continue
+        elif p in ('InCB=Extend', 'InCB=Linker'):
+            assert code_props[i] == 'Extend_Other'
+        else:
+            assert code_props[i] == 'Other'
+        code_props[i] = v
 
 prop_names = set(code_props)
 prop_names.remove('Other')
