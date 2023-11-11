@@ -295,12 +295,12 @@ START_TEST(test_unicode_forward)
 	for (i = 0; i < nunitest; i++) {
 		test = &unitests[i];
 
-		fprintf(stderr, "[%u]: ", i);
-		write_unitest(stderr, test);
+		//fprintf(stderr, "[%u]: ", i);
+		//write_unitest(stderr, test);
 		utf8lite_graphscan_make(&scan, &test->text);
 
 		for (j = 0; j < test->nbreak; j++) {
-			fprintf(stderr, "Break %u\n", j);
+			//fprintf(stderr, "Break %u\n", j);
 			ck_assert(utf8lite_graphscan_advance(&scan));
 			ck_assert(scan.current.text.ptr
 					== test->break_begin[j]);
@@ -322,8 +322,8 @@ START_TEST(test_unicode_backward)
 	for (i = 0; i < nunitest; i++) {
 		test = &unitests[i];
 
-		//fprintf(stderr, "[%u]: ", i);
-		//write_unitest(stderr, test);
+		fprintf(stderr, "[%u]: ", i);
+		write_unitest(stderr, test);
 		utf8lite_graphscan_make(&scan, &test->text);
 		utf8lite_graphscan_skip(&scan);
 		ck_assert(scan.current.text.ptr
@@ -332,7 +332,7 @@ START_TEST(test_unicode_backward)
 
 		j = test->nbreak;
 		while (j-- > 0) {
-			//fprintf(stderr, "Break %u\n", j);
+			fprintf(stderr, "Break %u\n", j);
 			ck_assert(utf8lite_graphscan_retreat(&scan));
 			ck_assert(scan.current.text.ptr
 					== test->break_begin[j]);

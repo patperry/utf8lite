@@ -193,7 +193,29 @@ Prepend:
 
 InCB_Consonant:
 	// GB0c:  Do not break within certain combinations with Indic_Conjunct_Break (InCB)=Linker.
-	// TODO: Not implemented.
+	while (
+		scan->prop == GRAPH_BREAK_EXTEND_INCB_EXTEND ||
+		scan->prop == GRAPH_BREAK_ZWJ) {
+		NEXT();
+	}
+	if (scan-> prop == GRAPH_BREAK_EXTEND_INCB_LINKER) {
+		NEXT();
+		goto InCB_Consonant_Linker;
+	}
+	goto MaybeBreak;
+
+InCB_Consonant_Linker:
+	// GB0c:  Do not break within certain combinations with Indic_Conjunct_Break (InCB)=Linker.
+	while (
+		scan->prop == GRAPH_BREAK_EXTEND_INCB_EXTEND ||
+		scan->prop == GRAPH_BREAK_EXTEND_INCB_LINKER ||
+		scan->prop == GRAPH_BREAK_ZWJ) {
+		NEXT();
+	}
+	if (scan->prop == GRAPH_BREAK_INCB_CONSONANT) {
+		NEXT();
+		goto InCB_Consonant;
+	}
 	goto MaybeBreak;
 
 Extended_Pictographic:
