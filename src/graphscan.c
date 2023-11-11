@@ -100,6 +100,10 @@ Start:
 		NEXT();
 		goto Prepend;
 
+	case GRAPH_BREAK_INCB_CONSONANT:
+		NEXT();
+		goto InCB_Consonant;
+
 	case GRAPH_BREAK_EXTENDED_PICTOGRAPHIC:
 		NEXT();
 		goto Extended_Pictographic;
@@ -108,7 +112,9 @@ Start:
 		NEXT();
 		goto Regional_Indicator;
 
-	case GRAPH_BREAK_EXTEND:
+	case GRAPH_BREAK_EXTEND_OTHER:
+	case GRAPH_BREAK_EXTEND_INCB_EXTEND:
+	case GRAPH_BREAK_EXTEND_INCB_LINKER:
 	case GRAPH_BREAK_SPACINGMARK:
 	case GRAPH_BREAK_ZWJ:
 	case GRAPH_BREAK_OTHER:
@@ -185,21 +191,52 @@ Prepend:
 		goto Start;
 	}
 
-Extended_Pictographic:
-	// GB9:  Do not break before extending characters
-	while (scan->prop == GRAPH_BREAK_EXTEND) {
+InCB_Consonant:
+	// GB0c:  Do not break within certain combinations with Indic_Conjunct_Break (InCB)=Linker.
+	while (
+		scan->prop == GRAPH_BREAK_EXTEND_INCB_EXTEND ||
+		scan->prop == GRAPH_BREAK_ZWJ) {
 		NEXT();
 	}
-    // GB9: Do not break before ZWJ
-    if (scan->prop == GRAPH_BREAK_ZWJ) {
-        NEXT();
-        // GB11: Do not break within emoji modifier sequences
-        // or emoji zwj sequences.
-        if (scan->prop == GRAPH_BREAK_EXTENDED_PICTOGRAPHIC) {
-            NEXT();
-            goto Extended_Pictographic;
-        }
-    }
+	if (scan-> prop == GRAPH_BREAK_EXTEND_INCB_LINKER) {
+		NEXT();
+		goto InCB_Consonant_Linker;
+	}
+	goto MaybeBreak;
+
+InCB_Consonant_Linker:
+	// GB0c:  Do not break within certain combinations with Indic_Conjunct_Break (InCB)=Linker.
+	while (
+		scan->prop == GRAPH_BREAK_EXTEND_INCB_EXTEND ||
+		scan->prop == GRAPH_BREAK_EXTEND_INCB_LINKER ||
+		scan->prop == GRAPH_BREAK_ZWJ) {
+		NEXT();
+	}
+	if (scan->prop == GRAPH_BREAK_INCB_CONSONANT) {
+		NEXT();
+		goto InCB_Consonant;
+	}
+	goto MaybeBreak;
+
+Extended_Pictographic:
+	// GB9:  Do not break before extending characters
+	while (
+		scan->prop == GRAPH_BREAK_EXTEND_OTHER ||
+		scan->prop == GRAPH_BREAK_EXTEND_INCB_EXTEND ||
+		scan->prop == GRAPH_BREAK_EXTEND_INCB_LINKER) {
+		NEXT();
+	}
+
+	// GB9: Do not break before ZWJ
+	if (scan->prop == GRAPH_BREAK_ZWJ) {
+		NEXT();
+		// GB11: Do not break within emoji modifier sequences
+		// or emoji zwj sequences.
+		if (scan->prop == GRAPH_BREAK_EXTENDED_PICTOGRAPHIC) {
+			NEXT();
+			goto Extended_Pictographic;
+		}
+	}
 	goto MaybeBreak;
 
 Regional_Indicator:
@@ -217,7 +254,9 @@ MaybeBreak:
 	// GB9a: Do not break before SpacingMark [extended grapheme clusters]
 	// GB999: Otherwise, break everywhere
 	switch (scan->prop) {
-	case GRAPH_BREAK_EXTEND:
+	case GRAPH_BREAK_EXTEND_OTHER:
+	case GRAPH_BREAK_EXTEND_INCB_EXTEND:
+	case GRAPH_BREAK_EXTEND_INCB_LINKER:
 	case GRAPH_BREAK_SPACINGMARK:
 	case GRAPH_BREAK_ZWJ:
 		NEXT();
@@ -270,7 +309,9 @@ static int follows_extended_pictographic(const struct utf8lite_text_iter *prev)
 		switch (prop) {
 		case GRAPH_BREAK_EXTENDED_PICTOGRAPHIC:
 			return 1;
-		case GRAPH_BREAK_EXTEND:
+		case GRAPH_BREAK_EXTEND_OTHER:
+		case GRAPH_BREAK_EXTEND_INCB_EXTEND:
+		case GRAPH_BREAK_EXTEND_INCB_LINKER:
 			break;
 		default:
 			return 0;
@@ -280,6 +321,46 @@ static int follows_extended_pictographic(const struct utf8lite_text_iter *prev)
 	return 0;
 }
 
+static int follows_incb_consonant(int prop, const struct utf8lite_text_iter *prev)
+{
+	struct utf8lite_text_iter it = *prev;
+	int first = 1;
+
+	while (first || utf8lite_text_iter_retreat(&it)) {
+		if (!first) {
+			prop = graph_break(it.current);
+		}
+		first = 0;
+		switch (prop) {
+		case GRAPH_BREAK_EXTEND_INCB_LINKER:
+			goto Linker;
+		case GRAPH_BREAK_ZWJ:
+		case GRAPH_BREAK_EXTEND_INCB_EXTEND:
+			break;
+		default:
+			return 0;
+		}
+	}
+
+	return 0;
+
+Linker:
+	while (utf8lite_text_iter_retreat(&it)) {
+		prop = graph_break(it.current);
+		switch (prop) {
+		case GRAPH_BREAK_INCB_CONSONANT:
+			return 1;
+		case GRAPH_BREAK_ZWJ:
+		case GRAPH_BREAK_EXTEND_INCB_EXTEND:
+		case GRAPH_BREAK_EXTEND_INCB_LINKER:
+			break;
+		default:
+			return 0;
+		}
+	}
+
+	return 0;
+}
 
 int utf8lite_graphscan_retreat(struct utf8lite_graphscan *scan)
 {
@@ -348,7 +429,9 @@ Start:
 		PREV();
 		goto T;
 
-	case GRAPH_BREAK_EXTEND:
+	case GRAPH_BREAK_EXTEND_OTHER:
+	case GRAPH_BREAK_EXTEND_INCB_EXTEND:
+	case GRAPH_BREAK_EXTEND_INCB_LINKER:
 	case GRAPH_BREAK_SPACINGMARK:
 	case GRAPH_BREAK_ZWJ:
 		PREV();
@@ -357,6 +440,10 @@ Start:
 	case GRAPH_BREAK_EXTENDED_PICTOGRAPHIC:
 		PREV();
 		goto Extended_Pictographic;
+
+	case GRAPH_BREAK_INCB_CONSONANT:
+		PREV();
+		goto InCB_Consonant;
 
 	case GRAPH_BREAK_REGIONAL_INDICATOR:
 		PREV();
@@ -438,19 +525,33 @@ Extend:
 		goto Start;
 	}
 
+InCB_Consonant:
+	// GB0c:  Do not break within certain combinations with Indic_Conjunct_Break (InCB)=Linker.
+	if (follows_incb_consonant(prop, &prev)) {
+		while (prop != GRAPH_BREAK_INCB_CONSONANT) {
+			PREV();
+		}
+		PREV();
+		goto InCB_Consonant;
+	}
+	goto MaybeBreak;
+
 Extended_Pictographic:
-    // GB11: Do not break within emoji modifier sequences or
-    // emoji zwj sequences.
+	// GB11: Do not break within emoji modifier sequences or
+	// emoji zwj sequences.
 	if (prop == GRAPH_BREAK_ZWJ && follows_extended_pictographic(&prev)) {
-        PREV(); // ZWJ
-		while (prop == GRAPH_BREAK_EXTEND) { // Extend*
+		PREV(); // ZWJ
+		while (
+			prop == GRAPH_BREAK_EXTEND_OTHER ||
+			prop == GRAPH_BREAK_EXTEND_INCB_EXTEND ||
+			prop == GRAPH_BREAK_EXTEND_INCB_LINKER) { // Extend*
 			PREV();
 		}
 
-        PREV();
-        goto Extended_Pictographic;
+		PREV();
+		goto Extended_Pictographic;
 	}
-    goto MaybeBreak;
+	goto MaybeBreak;
 
 Regional_Indicator:
 	// GB12, GB13: Do not break within emoji flag sequences
