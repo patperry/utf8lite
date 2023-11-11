@@ -321,6 +321,46 @@ static int follows_extended_pictographic(const struct utf8lite_text_iter *prev)
 	return 0;
 }
 
+static int follows_incb_consonant(int prop, const struct utf8lite_text_iter *prev)
+{
+	struct utf8lite_text_iter it = *prev;
+	int first = 1;
+
+	while (first || utf8lite_text_iter_retreat(&it)) {
+		if (!first) {
+			prop = graph_break(it.current);
+		}
+		first = 0;
+		switch (prop) {
+		case GRAPH_BREAK_EXTEND_INCB_LINKER:
+			goto Linker;
+		case GRAPH_BREAK_ZWJ:
+		case GRAPH_BREAK_EXTEND_INCB_EXTEND:
+			break;
+		default:
+			return 0;
+		}
+	}
+
+	return 0;
+
+Linker:
+	while (utf8lite_text_iter_retreat(&it)) {
+		prop = graph_break(it.current);
+		switch (prop) {
+		case GRAPH_BREAK_INCB_CONSONANT:
+			return 1;
+		case GRAPH_BREAK_ZWJ:
+		case GRAPH_BREAK_EXTEND_INCB_EXTEND:
+		case GRAPH_BREAK_EXTEND_INCB_LINKER:
+			break;
+		default:
+			return 0;
+		}
+	}
+
+	return 0;
+}
 
 int utf8lite_graphscan_retreat(struct utf8lite_graphscan *scan)
 {
@@ -487,7 +527,13 @@ Extend:
 
 InCB_Consonant:
 	// GB0c:  Do not break within certain combinations with Indic_Conjunct_Break (InCB)=Linker.
-	// TODO: Not implemented.
+	if (follows_incb_consonant(prop, &prev)) {
+		while (prop != GRAPH_BREAK_INCB_CONSONANT) {
+			PREV();
+		}
+		PREV();
+		goto InCB_Consonant;
+	}
 	goto MaybeBreak;
 
 Extended_Pictographic:
